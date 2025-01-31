@@ -9,6 +9,12 @@
             "name": "Bob",
             "email": "bob@example.com",
             "id": 2
+        },
+        {
+            "name": "dhaya",
+            "email": "dhaya@example.com",
+            "age": 20,
+            "id": 3
         }
     ]
 }

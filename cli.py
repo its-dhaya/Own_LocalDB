@@ -96,14 +96,8 @@ def process_command(command):
             fields = tokens[2:where_index] if len(tokens) > 2 and tokens[2] != "where" else[]
         else:
             fields = tokens[2:] if len(tokens) > 2 else []
-            where_index = len(tokens)
-        fields = [field.strip() for field in " ".join(tokens[2:where_index]).split(",")]
+        fields = [field.strip() for field in " ".join(fields).split("," ) if field.strip()]
         
-        if "where" in tokens and len(tokens) > 2:
-            fields = [field.strip() for field in " ".join(tokens[2:where_index]).split(",")]
-        else:
-            fields = []
-
 
         if table_name in database:
             if not fields:
@@ -129,8 +123,12 @@ def process_command(command):
                         if record_value != condition_value:
                             match = False
                 if match:
-                    result_record = {field.strip(): record.get(field.strip()) for field in fields} if fields else record
+                    if fields:
+                        result_record = {field.strip(): record.get(field.strip()) for field in fields}
+                    else:
+                        result_record = record
                     result.append(result_record)
+                       
 
             return json.dumps(result, indent=4) if result else "No records matched the condition."
         else:
