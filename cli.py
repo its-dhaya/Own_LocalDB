@@ -83,6 +83,7 @@ def process_command(command):
         table_name = tokens[1]
         fields = []
         condition_clause = None
+        where_index = len(tokens)
 
         if "where" in tokens:
             where_index = tokens.index("where")
@@ -95,7 +96,14 @@ def process_command(command):
             fields = tokens[2:where_index] if len(tokens) > 2 and tokens[2] != "where" else[]
         else:
             fields = tokens[2:] if len(tokens) > 2 else []
-        fields = [field.strip(",") for field in fields]
+            where_index = len(tokens)
+        fields = [field.strip() for field in " ".join(tokens[2:where_index]).split(",")]
+        
+        if "where" in tokens and len(tokens) > 2:
+            fields = [field.strip() for field in " ".join(tokens[2:where_index]).split(",")]
+        else:
+            fields = []
+
 
         if table_name in database:
             if not fields:
