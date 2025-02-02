@@ -142,17 +142,20 @@ def process_command(command):
         set_index = tokens.index("set")
         where_index = tokens.index("where")
 
+    # Extract the SET clause and WHERE clause
         set_clause = " ".join(tokens[set_index + 1:where_index])
         where_clause = " ".join(tokens[where_index + 1:])
 
         if "=" not in set_clause or "=" not in where_clause:
             return "Syntax error in SET or WHERE clause."
 
+    # Split the SET clause into field_name and new_value
         field_name, new_value = set_clause.split("=")
-        condition_field, condition_value = where_clause.split("=")
-
         field_name = field_name.strip()
         new_value = new_value.strip().strip("'")
+
+    # Split the WHERE clause into condition_field and condition_value
+        condition_field, condition_value = where_clause.split("=")
         condition_field = condition_field.strip()
         condition_value = condition_value.strip().strip("'")
 
@@ -160,13 +163,16 @@ def process_command(command):
             updated = False
             for record in database[table_name]:
                 if str(record.get(condition_field)) == condition_value:
+                # Convert the new value to the correct type
                     if isinstance(record.get(field_name), int):
                         new_value = int(new_value)
                     elif isinstance(record.get(field_name), float):
                         new_value = float(new_value)
 
+                # Update the record
                     record[field_name] = new_value
                     updated = True
+
             if updated:
                 save_db()
                 return f"Record(s) updated in '{table_name}'."
@@ -174,6 +180,7 @@ def process_command(command):
                 return "No records matched the condition."
         else:
             return f"Table '{table_name}' does not exist."
+
 
     elif action == "delete":
         if "from" not in tokens or "where" not in tokens:

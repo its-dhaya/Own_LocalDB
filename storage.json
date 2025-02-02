@@ -1,7 +1,7 @@
 {
     "users": [
         {
-            "name": "Alice",
+            "name": "\"newalice@gmail.com\"",
             "email": "alice@example.com",
             "id": 1
         },
@@ -11,10 +11,16 @@
             "id": 2
         },
         {
-            "name": "dhaya",
+            "name": "\"dhaya\"",
             "email": "dhaya@example.com",
             "age": 20,
             "id": 3
+        },
+        {
+            "name": "elan",
+            "email": "elan@gmail.com",
+            "role": "gang leader",
+            "id": 4
         }
     ]
 }
