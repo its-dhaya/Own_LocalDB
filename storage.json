@@ -1,25 +1,13 @@
 {
     "users": [
         {
-            "name": "\"newalice@gmail.com\"",
-            "email": "alice@example.com",
-            "id": 1
-        },
-        {
-            "name": "Bob",
-            "email": "bob@example.com",
-            "id": 2
-        },
-        {
-            "name": "\"dhaya\"",
+            "name": "dhaya",
             "email": "dhaya@example.com",
-            "age": 20,
             "id": 3
         },
         {
             "name": "elan",
-            "email": "elan@gmail.com",
-            "role": "gang leader",
+            "email": "elan@example.com",
             "id": 4
         }
     ]

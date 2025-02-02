@@ -183,7 +183,7 @@ def process_command(command):
 
 
     elif action == "delete":
-        if "from" not in tokens or "where" not in tokens:
+        if len(tokens) < 4 or tokens[1] != "from" or "where" not in tokens:
             return "Syntax error. Usage: DELETE FROM table_name WHERE condition;"
 
         table_name = tokens[2]
@@ -193,24 +193,35 @@ def process_command(command):
         if "=" not in condition_clause:
             return "Syntax error in WHERE clause."
 
+        # Extract condition field and value
         condition_field, condition_value = condition_clause.split("=")
         condition_field = condition_field.strip()
         condition_value = condition_value.strip().strip("'")
 
         if table_name in database:
             original_count = len(database[table_name])
-            database[table_name] = [record for record in database[table_name] if str(record.get(condition_field)) != condition_value]
 
+            # Type conversion for numerical fields
+            for record in database[table_name]:
+                if condition_field in record:
+                    if isinstance(record[condition_field], int):
+                        condition_value = int(condition_value)
+                    elif isinstance(record[condition_field], float):
+                        condition_value = float(condition_value)
+                    break  # Stop checking after the first record
+
+            # Remove matching records
+            database[table_name] = [record for record in database[table_name] if record.get(condition_field) != condition_value]
+
+            # Save if records were deleted
             if len(database[table_name]) < original_count:
                 save_db()
-                return f"Record(s) deleted from '{table_name}'."
+                return f"Deleted {original_count - len(database[table_name])} record(s) from '{table_name}'."
             else:
                 return "No records matched the condition."
         else:
             return f"Table '{table_name}' does not exist."
 
-    else:
-        return "Unknown command. Try 'create', 'insert', 'select', 'update', or 'delete'."
 
 def cli():
     print("SimpleDB CLI. Type 'exit' to quit.")
