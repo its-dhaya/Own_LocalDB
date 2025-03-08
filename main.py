@@ -1,31 +1,29 @@
-from fastapi import FastAPI
-from pydantic import BaseModel
-from db import FlatDB
+import sql
+import nosql
 
-app = FastAPI()
-db = FlatDB()
+def main():
+    print("Choose your database format:")
+    print("1. SQL")
+    print("2. NoSQL")
+    
+    choice = input("Enter 1 or 2: ").strip()
 
-# Pydantic model for data validation
-class Record(BaseModel):
-    name: str
-    age: int
+    if choice == "1":
+        print("You selected SQL database.")
+        process_command = sql.process_command  # Use SQL processor
+    elif choice == "2":
+        print("You selected NoSQL database.")
+        process_command = nosql.process_command  # Use NoSQL processor
+    else:
+        print("Invalid choice. Exiting.")
+        return
 
-@app.post("/insert/{table}")
-def insert_record(table: str, record: Record):
-    db.insert(table, record.dict())
-    return {"message": f"Record inserted into {table}"}
+    print("Type 'exit' to quit.")
+    while True:
+        command = input("db> ").strip()
+        if command.lower() == "exit":
+            break
+        print(process_command(command))
 
-@app.get("/select/{table}")
-def get_records(table: str):
-    records = db.get_all(table)
-    return {"records": records}
-
-@app.put("/update/{table}/{index}")
-def update_record(table: str, index: int, record: Record):
-    db.update(table, index, record.dict())
-    return {"message": f"Record in {table} updated at index {index}"}
-
-@app.delete("/delete/{table}/{index}")
-def delete_record(table: str, index: int):
-    db.delete(table, index)
-    return {"message": f"Record deleted from {table} at index {index}"}
+if __name__ == "__main__":
+    main()
