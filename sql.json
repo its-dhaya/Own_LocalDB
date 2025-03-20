@@ -1,0 +1,22 @@
+{
+    "users": {
+        "columns": [
+            "id",
+            "name"
+        ],
+        "types": {
+            "id": "INT",
+            "name": "TEXT"
+        },
+        "data": [
+            [
+                1,
+                "dhaya"
+            ],
+            [
+                2,
+                "diwa"
+            ]
+        ]
+    }
+}

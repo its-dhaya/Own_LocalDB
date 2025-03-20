@@ -199,7 +199,6 @@ def process_command(command):
             return f"Invalid JSON format: {e}"
 
 
-
     elif action == "select":
         if len(tokens) < 2:
             return "Syntax error. Usage: SELECT table_name [field_name] WHERE condition [ORDER BY field_name ASC/DESC] [GROUP BY field_name];"
