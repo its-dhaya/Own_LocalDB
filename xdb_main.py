@@ -1,7 +1,10 @@
+
 import threading
 import time
+import os
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import create_engine, Column, Integer, String
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
 import bcrypt
@@ -10,9 +13,14 @@ import jwt
 from datetime import timedelta
 import requests
 import uvicorn
+import webbrowser
 
 # ---------------------- FastAPI Setup ----------------------
 app = FastAPI()
+
+# Mount static files for guide download
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
 DATABASE_URL = "sqlite:///./users.db"
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -97,6 +105,9 @@ def authenticate():
             if response.status_code == 200:
                 token = response.json()["token"]
                 print(f"Login successful!")
+                print("\n📄 Download the SQL/NoSQL Command Guide:")
+                print("👉 http://127.0.0.1:8000/static/SQL_NoSQL_Command_Guide.docx\n")
+                webbrowser.open("http://127.0.0.1:8000/static/SQL_NoSQL_Command_Guide.docx")
                 return token
             else:
                 print(f"Login failed: {response.status_code} - {response.text}")
@@ -114,7 +125,7 @@ def authenticate():
             print("Invalid option. Try again.")
 
 def test_protected_route(token):
-    headers = {"Authorization": f"Bearer {token}"}
+    headers = {"Authorization": f"Bearer {token}"} 
     response = requests.get(f"{AUTH_SERVER}/protected", headers=headers)
     if response.status_code == 200:
         print("Protected Route Access:", response.json()["message"])
@@ -161,16 +172,11 @@ def run_console_program():
         print(process_command(command))
 
 def start_server():
-    uvicorn.run("xdb:app", host="127.0.0.1", port=8000, log_level="error", access_log=False)
-    
+    uvicorn.run("xdb_main:app", host="127.0.0.1", port=8000, log_level="error", access_log=False)
+
 if __name__ == "__main__":
-    # Start the FastAPI server in a separate thread
     server_thread = threading.Thread(target=start_server, daemon=True)
     server_thread.start()
-
-    # Wait a moment for server to start
     time.sleep(1)
     print("Server connected successfully\n")
-
-    # Start the console logic
     run_console_program()
