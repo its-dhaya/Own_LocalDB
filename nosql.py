@@ -5,10 +5,16 @@ import re
 import tkinter as tk
 from tkinter import filedialog
 import csv
+import shlex
+import platform
 
 current_db = None
 current_db_file = None
 _id_counter = {}
+
+def handle_nosql_query(query):
+    # Simple placeholder for actual NoSQL handling logic
+    return f"[NoSQL] You entered: {query}"
 
 def load_db(db_name):
     global current_db, current_db_file
@@ -40,9 +46,6 @@ def save_db():
     if current_db_file:
         with open(current_db_file, "w") as f:
             json.dump(current_db, f, indent=4)
-            
-import os
-import platform
 
 def get_downloads_directory():
     if platform.system() == "Windows":
@@ -126,7 +129,6 @@ def process_command(command):
         return f"Database '{db_name}' deleted successfully."
 
 
-
     elif action == "make" and len(tokens) >= 2:
         if current_db is None:
             return "No database selected. Use 'USE database_name' to select a database."
@@ -200,146 +202,149 @@ def process_command(command):
 
 
     elif action == "select":
-        if len(tokens) < 2:
-            return "Syntax error. Usage: SELECT table_name [field_name] WHERE condition [ORDER BY field_name ASC/DESC] [GROUP BY field_name];"
+        if len(tokens) < 4 or tokens[2].lower() != "from":
+            return "Syntax error. Usage: SELECT ALL|field1,field2 FROM table_name [WHERE field='value'] [ORDER BY field ASC|DESC] [GROUP BY field];"
 
-        table_name = tokens[1]
-        fields = []
+        fields_token = tokens[1].lower()
+        table_name = tokens[3]
         condition_clause = None
         order_field = None
         order_direction = "asc"
         group_field = None
-        where_index = len(tokens)
-        
-        # Check for WHERE condition
+
+        # Initialize fields
+        fields = [] if fields_token == "all" else [f.strip() for f in fields_token.split(",")]
+
+        # Handle WHERE clause
         if "where" in tokens:
             where_index = tokens.index("where")
             condition_clause = " ".join(tokens[where_index + 1:])
-            fields = tokens[2:where_index] if len(tokens) > 2 and tokens[2] != "where" else []
-        else:
-            fields = tokens[2:] if len(tokens) > 2 else []
+            if "order" in tokens:
+                condition_clause = " ".join(tokens[where_index + 1:tokens.index("order")])
+            elif "group" in tokens:
+                condition_clause = " ".join(tokens[where_index + 1:tokens.index("group")])
 
-        # Handle ORDER BY clause
+        # Handle ORDER BY
         if "order" in tokens and "by" in tokens:
             order_index = tokens.index("order")
             order_field = tokens[order_index + 2]
             if len(tokens) > order_index + 3 and tokens[order_index + 3].lower() in ["asc", "desc"]:
                 order_direction = tokens[order_index + 3].lower()
 
-        # Handle GROUP BY clause
+        # Handle GROUP BY
         if "group" in tokens and "by" in tokens:
             group_index = tokens.index("group")
             group_field = tokens[group_index + 2]
 
-        fields = [field.strip() for field in " ".join(fields).split(",") if field.strip()]
-
+        # Perform operations
         if table_name in current_db:
             result = current_db[table_name]
 
-            # Apply WHERE condition if exists
+            # WHERE filter
             if condition_clause:
-                condition_field, condition_value = condition_clause.split("=")
-                condition_field = condition_field.strip()
-                condition_value = condition_value.strip().strip("'")
-                result = [record for record in result if record.get(condition_field) == condition_value]
+                if "=" in condition_clause:
+                    condition_field, condition_value = condition_clause.split("=")
+                    condition_field = condition_field.strip()
+                    condition_value = condition_value.strip().strip("'\"")
+                    result = [r for r in result if r.get(condition_field) == condition_value]
+                else:
+                    return "Only '=' conditions are supported."
 
-            # Apply GROUP BY if exists
+            # GROUP BY
             if group_field:
                 grouped = {}
                 for record in result:
-                    group_key = record.get(group_field)
-                    if group_key is not None:
-                        if group_key not in grouped:
-                            grouped[group_key] = []
-                        grouped[group_key].append(record)
-                result = [{"group": group_key, "records": records} for group_key, records in grouped.items()]
+                    key = record.get(group_field)
+                    if key not in grouped:
+                        grouped[key] = []
+                    grouped[key].append(record)
+                result = [{"group": k, "records": v} for k, v in grouped.items()]
 
-            # Apply ORDER BY if exists
+            # ORDER BY
             if order_field:
                 result = sorted(result, key=lambda x: x.get(order_field, ""), reverse=(order_direction == "desc"))
 
-            if fields:
-                result = [{field: record.get(field) for field in fields} for record in result]
+            # Field filtering
+            if fields_token != "all":
+                result = [{field: r.get(field) for field in fields} for r in result]
 
-            return json.dumps(result, indent=4) if result else "No records matched the condition."
+            return json.dumps(result, indent=4) if result else "No records matched."
         else:
             return f"Table '{table_name}' does not exist."
-    
 
-    elif action == "update":
+
+
+    elif action.lower() == "update":
         try:
-            if "set" not in tokens or "where" not in tokens:
+            # Use shlex to split the command, preserving quoted values
+            tokens = shlex.split(command.replace("=", " = "))
+            lowered_tokens = [t.lower() for t in tokens]
+
+            if len(tokens) < 8 or "set" not in lowered_tokens or "where" not in lowered_tokens:
                 return "Syntax error. Usage: UPDATE table_name SET field=value WHERE condition;"
 
             table_name = tokens[1]
-            set_index = tokens.index("set")
-            where_index = tokens.index("where")
+            set_index = lowered_tokens.index("set")
+            where_index = lowered_tokens.index("where")
 
-            set_clause = " ".join(tokens[set_index + 1:where_index])
-            condition_clause = " ".join(tokens[where_index + 1:])
+            # Validate SET clause
+            if tokens[set_index + 2] != "=":
+                return "Syntax error in SET clause."
+            set_field = tokens[set_index + 1]
+            set_value = tokens[set_index + 3].strip("'").strip('"')
 
-            if "=" not in set_clause or "=" not in condition_clause:
-                return "Syntax error in SET or WHERE clause."
+            # Validate WHERE clause
+            if tokens[where_index + 2] != "=":
+                return "Syntax error in WHERE clause."
+            condition_field = tokens[where_index + 1]
+            condition_value = tokens[where_index + 3].strip("'").strip('"')
 
-            set_field, set_value = set_clause.split("=")
-            set_field = set_field.strip()
-            set_value = set_value.strip().strip("'")
-
-            condition_field, condition_value = condition_clause.split("=")
-            condition_field = condition_field.strip()
-            condition_value = condition_value.strip().strip("'")
-
-            if table_name in current_db:
-                modified_count = 0
-
-                # Detect column type from existing data
-                detected_type = None
-                for record in current_db[table_name]:
-                    if condition_field in record and record[condition_field] is not None:
-                        if isinstance(record[condition_field], int):
-                            detected_type = int
-                        elif isinstance(record[condition_field], float):
-                            detected_type = float
-                        break
-
-                # Convert condition value if type is detected
-                if detected_type:
-                    try:
-                        condition_value = detected_type(condition_value)
-                    except ValueError:
-                        return "Type mismatch in WHERE condition."
-
-                # Detect set value type from existing data
-                detected_type = None
-                for record in current_db[table_name]:
-                    if set_field in record and record[set_field] is not None:
-                        if isinstance(record[set_field], int):
-                            detected_type = int
-                        elif isinstance(record[set_field], float):
-                            detected_type = float
-                        break
-
-                # Convert set value if type is detected
-                if detected_type:
-                    try:
-                        set_value = detected_type(set_value)
-                    except ValueError:
-                        return "Type mismatch in SET clause."
-
-                # Apply update
-                for record in current_db[table_name]:
-                    if record.get(condition_field) == condition_value:
-                        record[set_field] = set_value
-                        modified_count += 1
-
-                return f"{modified_count} record(s) updated in '{table_name}'."
-            else:
+            if table_name not in current_db:
                 return f"Table '{table_name}' not found."
+
+            modified_count = 0
+
+            # Detect and convert types for WHERE value
+            for record in current_db[table_name]:
+                if condition_field in record:
+                    if isinstance(record[condition_field], int):
+                        try:
+                            condition_value = int(condition_value)
+                        except ValueError:
+                            return "Type mismatch in WHERE clause."
+                    elif isinstance(record[condition_field], float):
+                        try:
+                            condition_value = float(condition_value)
+                        except ValueError:
+                            return "Type mismatch in WHERE clause."
+                    break
+
+            # Detect and convert types for SET value
+            for record in current_db[table_name]:
+                if set_field in record:
+                    if isinstance(record[set_field], int):
+                        try:
+                            set_value = int(set_value)
+                        except ValueError:
+                            return "Type mismatch in SET clause."
+                    elif isinstance(record[set_field], float):
+                        try:
+                            set_value = float(set_value)
+                        except ValueError:
+                            return "Type mismatch in SET clause."
+                    break
+
+            # Perform the update
+            for record in current_db[table_name]:
+                if record.get(condition_field) == condition_value:
+                    record[set_field] = set_value
+                    modified_count += 1
+
+            save_db()  # Save changes to the JSON file
+            return f"{modified_count} record(s) updated in '{table_name}'."
 
         except Exception as e:
             return f"Error processing update command: {e}"
-
-
 
 
     elif action == "exclude":
@@ -409,58 +414,45 @@ def process_command(command):
 
             return "Syntax error. Use: EXCLUDE table_name; OR EXCLUDE FROM table_name WHERE condition;"
 
-
     elif action == "delete":
         try:
-            if len(tokens) < 4 or tokens[2] != "from" or "where" not in tokens:
-                return "Syntax error. Usage: DELETE [field_name] FROM table_name WHERE condition;"
+            if "from" not in tokens or "where" not in tokens:
+                return "Syntax error. Usage: DELETE [field] FROM table_name WHERE condition;"
 
+            # Determine if field to delete is specified
+            field_to_delete = tokens[1].lower() if len(tokens) > 1 else None
             table_name = tokens[3]
             where_index = tokens.index("where")
             condition_clause = " ".join(tokens[where_index + 1:])
 
-            if "=" not in condition_clause:
-                return "Syntax error in WHERE clause."
-
+            # Handle condition parsing
             condition_field, condition_value = condition_clause.split("=")
             condition_field = condition_field.strip()
             condition_value = condition_value.strip().strip("'")
 
             if table_name in current_db:
-                modified_count = 0
-
-                # Type conversion for numerical fields
+                deleted_count = 0
                 for record in current_db[table_name]:
-                    if condition_field in record:
-                        if isinstance(record[condition_field], int):
-                            condition_value = int(condition_value)
-                        elif isinstance(record[condition_field], float):
-                            condition_value = float(condition_value)
-                        break
+                    if record.get(condition_field) == condition_value:
+                        if field_to_delete:
+                            # Set the specified field to null
+                            record[field_to_delete] = None
+                        else:
+                            # If no specific field is provided, delete the record entirely
+                            current_db[table_name].remove(record)
+                        deleted_count += 1
 
-                if len(tokens) > 4:
-                    field_name = tokens[1]
+                # Save the changes to the file
+                save_db()
 
-                    for record in current_db[table_name]:
-                        if record.get(condition_field) == condition_value:
-                            if field_name in record:
-                                record[field_name] = None  # Instead of deleting, set it to None
-                                modified_count += 1
-                            else:
-                                return f"Field '{field_name}' not found in the record."
-                else:
-                    current_db[table_name] = [
-                        r if r.get(condition_field) != condition_value else {**r, "deleted": True}
-                        for r in current_db[table_name]
-                    ]
-                    modified_count += 1
-
-                return f"Deleted {modified_count} record(s)."
+                # Return response based on whether a field was deleted or the record
+                return f"{deleted_count} record(s) updated in '{table_name}' with field '{field_to_delete}' set to null." if field_to_delete else f"{deleted_count} record(s) deleted from '{table_name}'."
             else:
                 return f"Table '{table_name}' not found."
-
+        
         except Exception as e:
             return f"Error processing delete command: {e}"
+
 
 
 
@@ -486,17 +478,10 @@ def process_command(command):
         else:
             return "No tables found."
             
-
-
-
-
-
-
-
 def cli():
     print("SimpleDB CLI. Type 'exit' to quit.")
     while True:
-        command = input("db> ")
+        command = input("xdb> ")
         if command.lower() == "exit":
             break
         response = process_command(command)
