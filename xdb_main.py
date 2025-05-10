@@ -1,7 +1,7 @@
-
 import threading
 import time
 import os
+import  jwt
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.staticfiles import StaticFiles
@@ -9,7 +9,6 @@ from sqlalchemy import create_engine, Column, Integer, String
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
 import bcrypt
 from pydantic import BaseModel
-import jwt
 from datetime import timedelta
 import requests
 import uvicorn
@@ -18,9 +17,14 @@ import webbrowser
 # ---------------------- FastAPI Setup ----------------------
 app = FastAPI()
 
-# Mount static files for guide download
+# Ensure 'static' directory exists
+if not os.path.exists("static"):
+    os.makedirs("static")
+
+# Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+# Database Setup
 DATABASE_URL = "sqlite:///./users.db"
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -105,9 +109,10 @@ def authenticate():
             if response.status_code == 200:
                 token = response.json()["token"]
                 print(f"Login successful!")
+                file_path = "http://127.0.0.1:8000/static/SQL_NoSQL_Command_Guide.docx"
                 print("\n📄 Download the SQL/NoSQL Command Guide:")
-                print("👉 http://127.0.0.1:8000/static/SQL_NoSQL_Command_Guide.docx\n")
-                webbrowser.open("http://127.0.0.1:8000/static/SQL_NoSQL_Command_Guide.docx")
+                print(f"👉 {file_path}\n")
+                webbrowser.open(file_path)
                 return token
             else:
                 print(f"Login failed: {response.status_code} - {response.text}")
